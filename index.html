@@ -51,7 +51,7 @@ const GRASS_TOP = HDR;
 const RIVER_TOP = HDR + ZONE_H;
 
 // ── Game settings (easy mode) ──
-const WIN_SCORE  = 15;
+const WIN_SCORE  = 25;
 const MAX_LIVES  = 3;
 const CHAR_W     = 68;
 const CHAR_H     = 68;
@@ -197,10 +197,10 @@ function startNatureMusic(){
 /// — Win screen: soft harmonic Happy Birthday melody —
 // [frequency Hz, duration seconds]  (tempo ≈ 75 BPM, ♩=0.8s)
 const HBD=[
-  [392,0.4],[392,0.4],[440,0.8],[392,0.8],[523,0.8],[494,1.6],  // Happy Birthday to you
-  [392,0.4],[392,0.4],[440,0.8],[392,0.8],[587,0.8],[523,1.6],  // Happy Birthday to you
-  [392,0.4],[392,0.4],[784,0.8],[659,0.8],[523,0.8],[494,0.8],[440,1.6], // Happy Birthday dear Jamal
-  [698,0.4],[698,0.4],[659,0.8],[523,0.8],[587,0.8],[523,1.6],  // Happy Birthday to you
+  [392,0.4],[392,0.4],[440,0.8],[392,0.8],[523,0.8],[494,1.6],  
+  [392,0.4],[392,0.4],[440,0.8],[392,0.8],[587,0.8],[523,1.6],  
+  [392,0.4],[392,0.4],[784,0.8],[659,0.8],[523,0.8],[494,0.8],[440,1.6],
+  [698,0.4],[698,0.4],[659,0.8],[523,0.8],[587,0.8],[523,1.6], 
 ];
 const HBD_TOTAL=HBD.reduce((s,[,d])=>s+d,0);
 
