@@ -27,23 +27,26 @@ const ctx    = canvas.getContext('2d');
 const GW = 400, GH = 700;
 let scale = 1;
 function setGameSize(){
-  canvas.style.position = '';
-  canvas.style.top = '';
-  canvas.style.left = '';
-  scale = Math.min(window.innerWidth/GW, window.innerHeight/GH);
-  canvas.style.width  = Math.floor(GW*scale)+'px';
-  canvas.style.height = Math.floor(GH*scale)+'px';
   canvas.width  = GW;
   canvas.height = GH;
+  scale = Math.min(window.innerWidth/GW, window.innerHeight/GH);
+  canvas.style.position = 'static';
+  canvas.style.top = '';
+  canvas.style.left = '';
+  canvas.style.zIndex = '';
+  canvas.style.width  = Math.floor(GW*scale)+'px';
+  canvas.style.height = Math.floor(GH*scale)+'px';
 }
 function setWinSize(){
+  const w = window.innerWidth, h = window.innerHeight;
+  canvas.width  = w;
+  canvas.height = h;
   canvas.style.position = 'fixed';
   canvas.style.top = '0';
   canvas.style.left = '0';
-  canvas.style.width  = '100vw';
-  canvas.style.height = '100vh';
-  canvas.width  = window.innerWidth;
-  canvas.height = window.innerHeight;
+  canvas.style.zIndex = '9999';
+  canvas.style.width  = w + 'px';
+  canvas.style.height = h + 'px';
   scale = 1;
 }
 function resize(){
@@ -60,13 +63,13 @@ const RIVER_TOP = HDR + ZONE_H;
 
 // ── Game settings (easy mode) ──
 const WIN_SCORE  = 10;
-const MAX_LIVES  = 5;
+const MAX_LIVES  = 8;
 const CHAR_W     = 68;
 const CHAR_H     = 68;
 const ITEM_SZ    = 40;
 const CATCH_W    = CHAR_W * 1.1;   // generous hitbox
 const CATCH_H    = 32;
-const CHAR_SPEED = 8;
+const CHAR_SPEED = 6;
 
 // ── State ──
 const S = {START:0, PLAY:1, WIN:2, LOSE:3};
@@ -349,32 +352,22 @@ function drawHeader(){
 }
 
 // Solid background colours per item type
-const ITEM_BG = {
-  '🎂':'#ff6b8a', '💚':'#27ae60', '🎁':'#9b59b6', '🕯️':'#f39c12',
-  '🎈':'#e74c3c', '⭐':'#f1c40f', '🌸':'#ff85a2', '🍭':'#1abc9c', '🎀':'#e056fd'
-};
-const ITEM_BORDER = {
-  '🎂':'#c0392b', '💚':'#1e8449', '🎁':'#7d3c98', '🕯️':'#d68910',
-  '🎈':'#a93226', '⭐':'#d4ac0d', '🌸':'#e05c80', '🍭':'#148f77', '🎀':'#be2edd'
-};
+// const ITEM_BG = {
+//   '🎂':'#ff6b8a', '💚':'#27ae60', '🎁':'#9b59b6', '🕯️':'#f39c12',
+//   '🎈':'#e74c3c', '⭐':'#f1c40f', '🌸':'#ff85a2', '🍭':'#1abc9c', '🎀':'#e056fd'
+// };
+// const ITEM_BORDER = {
+//   '🎂':'#c0392b', '💚':'#1e8449', '🎁':'#7d3c98', '🕯️':'#d68910',
+//   '🎈':'#a93226', '⭐':'#d4ac0d', '🌸':'#e05c80', '🍭':'#148f77', '🎀':'#be2edd'
+// };
 
 function drawItems(){
   ctx.textAlign='center'; ctx.textBaseline='middle';
-  const pad = ITEM_SZ * 0.6;
+  // const pad = ITEM_SZ * 0.6;
   for(const it of items){
     if(it.alpha<=0) continue;
-    ctx.save();
-    ctx.globalAlpha = it.alpha;
-
-    // Bright solid circle background
-    ctx.beginPath();
-    ctx.arc(it.x, it.y, pad, 0, Math.PI*2);
-    ctx.fillStyle = ITEM_BG[it.type] || '#e74c3c';
-    ctx.fill();
-
-    // Emoji on top
-    ctx.font = ITEM_SZ+'px serif';
-    ctx.fillText(it.type, it.x, it.y);
+    ctx.save(); ctx.globalAlpha=it.alpha;
+    ctx.font=ITEM_SZ+'px serif'; ctx.fillText(it.type, it.x, it.y);
 
     ctx.restore();
   }
@@ -439,9 +432,9 @@ function drawWin(){
   ctx.fillStyle=g; ctx.fillRect(0,0,GW,GH);
 
   // Twinkling stars
-  for(const[sx,sy] of STARS){
-    const a=0.3+Math.sin(frame*0.05+sx)*0.3;
-    ctx.fillStyle='rgba(255,255,255,'+a+')'; ctx.fillRect(sx,sy,2,2);
+  for(const[stx,sty] of STARS){
+    const a=0.3+Math.sin(frame*0.05+stx)*0.3;
+    ctx.fillStyle='rgba(255,255,255,'+a+')'; ctx.fillRect(stx,sty,2,2);
   }
 
   // Confetti rain
