@@ -26,15 +26,31 @@ const ctx    = canvas.getContext('2d');
 // Logical game size (portrait)
 const GW = 400, GH = 700;
 let scale = 1;
-function resize(){
+function setGameSize(){
+  canvas.style.position = '';
+  canvas.style.top = '';
+  canvas.style.left = '';
   scale = Math.min(window.innerWidth/GW, window.innerHeight/GH);
   canvas.style.width  = Math.floor(GW*scale)+'px';
   canvas.style.height = Math.floor(GH*scale)+'px';
   canvas.width  = GW;
   canvas.height = GH;
 }
+function setWinSize(){
+  canvas.style.position = 'fixed';
+  canvas.style.top = '0';
+  canvas.style.left = '0';
+  canvas.style.width  = '100vw';
+  canvas.style.height = '100vh';
+  canvas.width  = window.innerWidth;
+  canvas.height = window.innerHeight;
+  scale = 1;
+}
+function resize(){
+  if(gs===S.WIN) setWinSize(); else setGameSize();
+}
 window.addEventListener('resize', resize);
-resize();
+setGameSize();
 
 // ── Layout constants ──
 const HDR      = 76;
@@ -44,13 +60,13 @@ const RIVER_TOP = HDR + ZONE_H;
 
 // ── Game settings (easy mode) ──
 const WIN_SCORE  = 10;
-const MAX_LIVES  = 8;
+const MAX_LIVES  = 5;
 const CHAR_W     = 68;
 const CHAR_H     = 68;
 const ITEM_SZ    = 40;
 const CATCH_W    = CHAR_W * 1.1;   // generous hitbox
 const CATCH_H    = 32;
-const CHAR_SPEED = 6;
+const CHAR_SPEED = 8;
 
 // ── State ──
 const S = {START:0, PLAY:1, WIN:2, LOSE:3};
@@ -68,7 +84,7 @@ const td   = { turtle:0, otter:0 };  // touch dirs
 window.addEventListener('keydown', e=>{
   keys[e.key]=true;
   if(gs===S.START){ startGame(); return; }
-  if((gs===S.WIN||gs===S.LOSE)&&(e.key===' '||e.key==='Enter')) resetGame();
+  if(gs===S.LOSE&&(e.key===' '||e.key==='Enter')) resetGame();
   e.preventDefault();
 });
 window.addEventListener('keyup', e=>{ keys[e.key]=false; });
@@ -76,6 +92,13 @@ window.addEventListener('keyup', e=>{ keys[e.key]=false; });
 function tp(t){
   const r=canvas.getBoundingClientRect();
   return { x:(t.clientX-r.left)/scale, y:(t.clientY-r.top)/scale };
+}
+// Hit-test the PLAY AGAIN button on the win screen (game coords GW/2,610 ±110x30)
+function hitPlayAgain(clientX, clientY){
+  const r=canvas.getBoundingClientRect();
+  const sx=canvas.width/GW, sy=canvas.height/GH;
+  const gx=(clientX-r.left)/sx, gy=(clientY-r.top)/sy;
+  return gx>=GW/2-120 && gx<=GW/2+120 && gy>=578 && gy<=642;
 }
 function calcTouchDirs(e){
   td.turtle=0; td.otter=0;
@@ -89,7 +112,12 @@ function calcTouchDirs(e){
 canvas.addEventListener('touchstart', e=>{
   e.preventDefault();
   if(gs===S.START){ startGame(); return; }
-  if(gs===S.WIN||gs===S.LOSE){ resetGame(); return; }
+  if(gs===S.WIN){
+    const t=e.touches[0];
+    if(t && hitPlayAgain(t.clientX, t.clientY)) resetGame();
+    return;
+  }
+  if(gs===S.LOSE){ resetGame(); return; }
   calcTouchDirs(e);
 },{passive:false});
 canvas.addEventListener('touchmove', e=>{ e.preventDefault(); calcTouchDirs(e); },{passive:false});
@@ -100,9 +128,10 @@ canvas.addEventListener('touchend', e=>{
     if(top) td.turtle=dir; else td.otter=dir;
   }
 },{passive:false});
-canvas.addEventListener('click', ()=>{
+canvas.addEventListener('click', e=>{
   if(gs===S.START) startGame();
-  else if(gs===S.WIN||gs===S.LOSE) resetGame();
+  else if(gs===S.WIN){ if(hitPlayAgain(e.clientX, e.clientY)) resetGame(); }
+  else if(gs===S.LOSE) resetGame();
 });
 
 // ── Audio ──
@@ -138,7 +167,7 @@ function startGame(){
   items=[]; bursts=[]; winConfetti=[]; winAnim=0;
   turtle.x=GW*0.28; otter.x=GW*0.72;
 }
-function resetGame(){ gs=S.START; }
+function resetGame(){ gs=S.START; setGameSize(); }
 
 const ITYPES=['🎂','💚','🎁','🕯️','🎈','⭐','🌸','🍭','🎀'];
 
@@ -204,7 +233,7 @@ function update(){
     // Catch
     if(it.y+ITEM_SZ/2>=ch.y && it.y-ITEM_SZ/2<=ch.y+CATCH_H && Math.abs(it.x-ch.x)<=CATCH_W/2){
       it.st='caught'; score++; sfxCatch(); burst(it.x,it.y,9);
-      if(score>=WIN_SCORE){ gs=S.WIN; sfxWin(); bigConfetti(); }
+      if(score>=WIN_SCORE){ gs=S.WIN; sfxWin(); bigConfetti(); setWinSize(); }
     } else if(it.y>zb+ITEM_SZ){
       it.st='missed'; lives--; sfxMiss();
       if(lives<=0){ gs=S.LOSE; sfxLose(); }
@@ -319,12 +348,34 @@ function drawHeader(){
   ctx.fillText('🦦 OTTER   —  ◀ / ▶  or tap', 8, RIVER_TOP+13);
 }
 
+// Solid background colours per item type
+const ITEM_BG = {
+  '🎂':'#ff6b8a', '💚':'#27ae60', '🎁':'#9b59b6', '🕯️':'#f39c12',
+  '🎈':'#e74c3c', '⭐':'#f1c40f', '🌸':'#ff85a2', '🍭':'#1abc9c', '🎀':'#e056fd'
+};
+const ITEM_BORDER = {
+  '🎂':'#c0392b', '💚':'#1e8449', '🎁':'#7d3c98', '🕯️':'#d68910',
+  '🎈':'#a93226', '⭐':'#d4ac0d', '🌸':'#e05c80', '🍭':'#148f77', '🎀':'#be2edd'
+};
+
 function drawItems(){
   ctx.textAlign='center'; ctx.textBaseline='middle';
+  const pad = ITEM_SZ * 0.6;
   for(const it of items){
     if(it.alpha<=0) continue;
-    ctx.save(); ctx.globalAlpha=it.alpha;
-    ctx.font=ITEM_SZ+'px serif'; ctx.fillText(it.type, it.x, it.y);
+    ctx.save();
+    ctx.globalAlpha = it.alpha;
+
+    // Bright solid circle background
+    ctx.beginPath();
+    ctx.arc(it.x, it.y, pad, 0, Math.PI*2);
+    ctx.fillStyle = ITEM_BG[it.type] || '#e74c3c';
+    ctx.fill();
+
+    // Emoji on top
+    ctx.font = ITEM_SZ+'px serif';
+    ctx.fillText(it.type, it.x, it.y);
+
     ctx.restore();
   }
 }
@@ -377,80 +428,113 @@ function drawStart(){
 const SHIMMER=['#f9ca24','#f0932b','#eb4d4b','#e056fd','#686de0','#2ecc71'];
 
 function drawWin(){
-  // Background
+  // Scale all GW×GH drawing coordinates to fill the actual canvas
+  const sx=canvas.width/GW, sy=canvas.height/GH;
+  ctx.save();
+  ctx.scale(sx,sy);
+
+  // Full-screen gradient background
   const g=ctx.createLinearGradient(0,0,0,GH);
-  g.addColorStop(0,'#0d2a1c'); g.addColorStop(1,'#0d3350');
+  g.addColorStop(0,'#0d2a1c'); g.addColorStop(0.5,'#0f3048'); g.addColorStop(1,'#0d2a1c');
   ctx.fillStyle=g; ctx.fillRect(0,0,GW,GH);
 
-  // Rain confetti
+  // Twinkling stars
+  for(const[sx,sy] of STARS){
+    const a=0.3+Math.sin(frame*0.05+sx)*0.3;
+    ctx.fillStyle='rgba(255,255,255,'+a+')'; ctx.fillRect(sx,sy,2,2);
+  }
+
+  // Confetti rain
   for(const c of winConfetti){ c.x+=c.vx; c.y+=c.vy; c.vy+=0.04; c.rot+=c.rv; c.alpha-=c.fade; }
   winConfetti=winConfetti.filter(c=>c.alpha>0);
   if(winConfetti.length<35 && frame%80===0) bigConfetti();
   drawParticles(winConfetti);
 
-  // Card pop-in (easeOutBack spring)
+  // Full-screen card pop-in (easeOutBack spring)
   const t=winAnim;
   const ease=t<1 ? 1+2.7*Math.pow(t-1,3)+1.7*Math.pow(t-1,2) : 1;
   ctx.save();
   ctx.translate(GW/2,GH/2); ctx.scale(ease,ease); ctx.translate(-GW/2,-GH/2);
 
-  // Card panel
-  ctx.fillStyle='rgba(255,255,255,0.09)'; rrect(18,34,GW-36,GH-68,30); ctx.fill();
-  ctx.strokeStyle='rgba(255,255,255,0.22)'; ctx.lineWidth=1.5; rrect(18,34,GW-36,GH-68,30); ctx.stroke();
-
-  // Characters on sides
-  const b1=Math.sin(frame*0.1)*9, b2=-Math.sin(frame*0.1)*9;
-  if(turtleImg.complete) ctx.drawImage(turtleImg, 24,  GH/2-55+b1, 105, 105);
-  if(otterImg.complete)  ctx.drawImage(otterImg,  GW-128, GH/2-60+b2, 115, 115);
+  // Full-screen frosted card (no margins)
+  ctx.fillStyle='rgba(255,255,255,0.07)'; ctx.fillRect(0,0,GW,GH);
+  // Glowing border lines top & bottom
+  ctx.strokeStyle='rgba(46,204,113,0.4)'; ctx.lineWidth=3;
+  ctx.beginPath(); ctx.moveTo(0,3); ctx.lineTo(GW,3); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(0,GH-3); ctx.lineTo(GW,GH-3); ctx.stroke();
 
   ctx.textAlign='center'; ctx.textBaseline='middle';
 
-  // Subtitle
-  ctx.font='italic 14px Georgia,serif'; ctx.fillStyle='#a8f0c0';
-  ctx.fillText('Happy Birthday, my favourite person!', GW/2, 135);
+  // ── TOP SECTION: emoji celebration ──
+  ctx.font='28px serif';
+  ctx.fillText('🎉  🎂  🎊  🎈  🎉', GW/2, 48);
 
-  // Main title
-  ctx.font='bold 24px monospace'; ctx.fillStyle='#fff';
-  ctx.fillText('Happy Birthday', GW/2, 188);
+  // ── Subtitle ──
+  ctx.font='italic 16px Georgia,serif'; ctx.fillStyle='#a8f0c0';
+  ctx.fillText('Happy Birthday, my favourite person!', GW/2, 92);
 
-  // Rainbow JAMAL!
+  // ── Main title ──
+  ctx.font='bold 30px monospace'; ctx.fillStyle='#fff';
+  ctx.fillText('Happy Birthday', GW/2, 140);
+
+  // ── Rainbow JAMAL! ──
   const letters='JAMAL!  🎉';
-  const lw=25, sx=GW/2-(letters.length*lw)/2;
-  ctx.font='bold 26px monospace';
+  const lw=28, startX=GW/2-(letters.length*lw)/2;
+  ctx.font='bold 32px monospace';
   for(let i=0;i<letters.length;i++){
-    ctx.fillStyle=SHIMMER[(i+Math.floor(frame/6))%SHIMMER.length];
-    ctx.fillText(letters[i], sx+i*lw+lw/2, 228);
+    ctx.fillStyle=SHIMMER[(i+Math.floor(frame/5))%SHIMMER.length];
+    ctx.fillText(letters[i], startX+i*lw+lw/2, 185);
   }
 
-  // Divider
-  ctx.fillStyle='rgba(46,204,113,0.6)'; ctx.fillRect(80,252,240,2);
+  // ── Divider ──
+  const dg=ctx.createLinearGradient(40,0,GW-40,0);
+  dg.addColorStop(0,'transparent'); dg.addColorStop(0.3,'#2ecc71');
+  dg.addColorStop(0.7,'#2ecc71'); dg.addColorStop(1,'transparent');
+  ctx.strokeStyle=dg; ctx.lineWidth=2;
+  ctx.beginPath(); ctx.moveTo(40,213); ctx.lineTo(GW-40,213); ctx.stroke();
 
-  // Message
-  ctx.font='14px Georgia,serif'; ctx.fillStyle='rgba(255,255,255,0.85)';
-  ctx.fillText('Wishing you a day filled with', GW/2, 300);
-  ctx.fillText('laughter, joy & everything', GW/2, 324);
-  ctx.fillText('you love!  🎁', GW/2, 348);
+  // ── Message ──
+  ctx.font='16px Georgia,serif'; ctx.fillStyle='rgba(255,255,255,0.88)';
+  ctx.fillText('Wishing you a day filled with', GW/2, 248);
+  ctx.fillText('laughter, joy & everything', GW/2, 274);
+  ctx.fillText('you love! 🎁', GW/2, 300);
 
-  // Hearts pulse
-  const hp=1+Math.sin(frame*0.13)*0.08;
-  ctx.save(); ctx.translate(GW/2,400); ctx.scale(hp,hp);
-  ctx.font='20px serif'; ctx.textBaseline='middle'; ctx.textAlign='center';
-  ctx.fillStyle='#2ecc71'; ctx.fillText('💚  💚  💚  💚  💚', 0, 0);
+  // ── LARGE characters, side by side ──
+  const b1=Math.sin(frame*0.09)*11, b2=-Math.sin(frame*0.09)*11;
+  if(turtleImg.complete) ctx.drawImage(turtleImg, 10,  330+b1, 170, 170);
+  if(otterImg.complete)  ctx.drawImage(otterImg,  GW-185, 325+b2, 185, 185);
+
+  // ── Hearts centred between characters ──
+  const hp=1+Math.sin(frame*0.13)*0.1;
+  ctx.save(); ctx.translate(GW/2, 430); ctx.scale(hp,hp);
+  ctx.font='22px serif'; ctx.textBaseline='middle'; ctx.textAlign='center';
+  ctx.fillStyle='#2ecc71';
+  ctx.fillText('💚  💚  💚', 0, 0);
   ctx.restore();
 
-  // Nature row
-  ctx.font='18px serif'; ctx.fillStyle='rgba(255,255,255,0.8)';
-  ctx.fillText('🌿  🌸  🍃  🌺  🌱', GW/2, 448);
+  // ── Nature row ──
+  ctx.font='20px serif'; ctx.fillStyle='rgba(255,255,255,0.85)';
+  ctx.fillText('🌿  🌸  🍃  🌺  🌱', GW/2, 480);
 
-  // Play again button
+  // ── Second divider ──
+  ctx.strokeStyle=dg; ctx.lineWidth=2;
+  ctx.beginPath(); ctx.moveTo(40,510); ctx.lineTo(GW-40,510); ctx.stroke();
+
+  // ── "from" line ──
+  ctx.font='italic 14px Georgia,serif'; ctx.fillStyle='rgba(200,240,210,0.7)';
+  ctx.fillText('with love  🦦 + 🐢', GW/2, 535);
+
+  // ── Play again button ──
   const pb=1+Math.sin(frame*0.1)*0.04;
-  ctx.save(); ctx.translate(GW/2,555); ctx.scale(pb,pb);
-  ctx.fillStyle='#2ecc71'; rrect(-95,-26,190,52,26); ctx.fill();
-  ctx.font='bold 16px monospace'; ctx.fillStyle='#fff';
+  ctx.save(); ctx.translate(GW/2, 610); ctx.scale(pb,pb);
+  ctx.fillStyle='#2ecc71'; rrect(-110,-30,220,60,30); ctx.fill();
+  ctx.strokeStyle='rgba(255,255,255,0.3)'; ctx.lineWidth=2; rrect(-110,-30,220,60,30); ctx.stroke();
+  ctx.font='bold 18px monospace'; ctx.fillStyle='#fff';
   ctx.textBaseline='middle'; ctx.fillText('▶  PLAY AGAIN', 0, 0);
   ctx.restore();
 
   ctx.restore(); // end card scale
+  ctx.restore(); // end fullscreen scale
 }
 
 function drawLose(){
