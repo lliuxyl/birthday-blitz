@@ -103,9 +103,10 @@ function calcTouchDirs(e){
 }
 canvas.addEventListener('touchstart', e=>{
   e.preventDefault();
-  if(gs===S.START){ startGame(); return; }
+  const t=e.touches[0];
+  if(t && hitMuteBtn(t.clientX,t.clientY)){ toggleMute(); return; }
+  if(gs===S.START){ startNatureMusic(); startGame(); return; }
   if(gs===S.WIN){
-    const t=e.touches[0];
     if(t && hitPlayAgain(t.clientX, t.clientY)) resetGame();
     return;
   }
@@ -121,7 +122,8 @@ canvas.addEventListener('touchend', e=>{
   }
 },{passive:false});
 canvas.addEventListener('click', e=>{
-  if(gs===S.START) startGame();
+  if(hitMuteBtn(e.clientX,e.clientY)){ toggleMute(); return; }
+  if(gs===S.START){ startNatureMusic(); startGame(); }
   else if(gs===S.WIN){ if(hitPlayAgain(e.clientX, e.clientY)) resetGame(); }
   else if(gs===S.LOSE) resetGame();
 });
@@ -148,6 +150,85 @@ const sfxMiss =()=>tone(160,'sawtooth',0.2,0.2);
 const sfxWin  =()=>[523,659,784,1047].forEach((f,i)=>setTimeout(()=>tone(f,'sine',0.3,0.3),i*120));
 const sfxLose =()=>[380,290,210,155].forEach((f,i)=>setTimeout(()=>tone(f,'sawtooth',0.28,0.2),i*140));
 
+// ── Music ──
+let muted=false;
+let musicNodes=[], musicTimers=[];
+function stopMusic(){
+  musicTimers.forEach(t=>clearTimeout(t)); musicTimers=[];
+  musicNodes.forEach(n=>{ try{ n.stop(); }catch(_){} }); musicNodes=[];
+}
+
+// — Start screen: nature ambience (wind + water ripple) + chiptune melody —
+function startAmbience(){
+  const a=ac();
+  const sr=a.sampleRate, len=sr*3;
+  const buf=a.createBuffer(1,len,sr);
+  const d=buf.getChannelData(0);
+  for(let i=0;i<len;i++) d[i]=(Math.random()*2-1);
+
+  // Wind layer
+  const wSrc=a.createBufferSource(); wSrc.buffer=buf; wSrc.loop=true;
+  const wFil=a.createBiquadFilter(); wFil.type='bandpass'; wFil.frequency.value=380; wFil.Q.value=0.7;
+  const wGain=a.createGain(); wGain.gain.value=muted?0:0.045;
+  const wLFO=a.createOscillator(); wLFO.frequency.value=0.12;
+  const wLFOG=a.createGain(); wLFOG.gain.value=160;
+  wLFO.connect(wLFOG); wLFOG.connect(wFil.frequency);
+  wSrc.connect(wFil); wFil.connect(wGain); wGain.connect(a.destination);
+  wSrc.start(); wLFO.start();
+  musicNodes.push(wSrc, wLFO);
+
+  // Water ripple layer
+  const rSrc=a.createBufferSource(); rSrc.buffer=buf; rSrc.loop=true; rSrc.playbackRate.value=1.7;
+  const rFil=a.createBiquadFilter(); rFil.type='bandpass'; rFil.frequency.value=1100; rFil.Q.value=3;
+  const rGain=a.createGain(); rGain.gain.value=muted?0:0.02;
+  const rLFO=a.createOscillator(); rLFO.frequency.value=0.35;
+  const rLFOG=a.createGain(); rLFOG.gain.value=300;
+  rLFO.connect(rLFOG); rLFOG.connect(rFil.frequency);
+  rSrc.connect(rFil); rFil.connect(rGain); rGain.connect(a.destination);
+  rSrc.start(); rLFO.start();
+  musicNodes.push(rSrc, rLFO);
+}
+
+function startNatureMusic(){
+  stopMusic();
+  startAmbience();
+}
+
+/// — Win screen: soft harmonic Happy Birthday melody —
+// [frequency Hz, duration seconds]  (tempo ≈ 75 BPM, ♩=0.8s)
+const HBD=[
+  [392,0.4],[392,0.4],[440,0.8],[392,0.8],[523,0.8],[494,1.6],  // Happy Birthday to you
+  [392,0.4],[392,0.4],[440,0.8],[392,0.8],[587,0.8],[523,1.6],  // Happy Birthday to you
+  [392,0.4],[392,0.4],[784,0.8],[659,0.8],[523,0.8],[494,0.8],[440,1.6], // Happy Birthday dear Jamal
+  [698,0.4],[698,0.4],[659,0.8],[523,0.8],[587,0.8],[523,1.6],  // Happy Birthday to you
+];
+const HBD_TOTAL=HBD.reduce((s,[,d])=>s+d,0);
+
+function softNote(a,freq,startT,dur){
+  // Fundamental + 2nd harmonic for warmth
+  [1,2].forEach((harmonic,i)=>{
+    const o=a.createOscillator(), g=a.createGain();
+    o.type='sine'; o.frequency.value=freq*harmonic;
+    o.connect(g); g.connect(a.destination);
+    const vol=(muted?0:0.13)/(i+1);
+    g.gain.setValueAtTime(0,startT);
+    g.gain.linearRampToValueAtTime(vol,startT+0.04);
+    g.gain.setValueAtTime(vol,startT+dur*0.5);
+    g.gain.exponentialRampToValueAtTime(0.001,startT+dur*0.95);
+    o.start(startT); o.stop(startT+dur);
+    musicNodes.push(o);
+  });
+}
+function playHappyBirthday(){
+  if(muted) return;
+  const a=ac();
+  let t=a.currentTime+0.2;
+  for(const[freq,dur] of HBD){ softNote(a,freq,t,dur); t+=dur; }
+  // Loop gently after the tune finishes
+  musicTimers.push(setTimeout(()=>{ if(gs===S.WIN&&!muted) playHappyBirthday(); },(HBD_TOTAL+1.5)*1000));
+}
+function startWinMusic(){ stopMusic(); setTimeout(playHappyBirthday,400); }
+
 // ── Images ──
 const otterImg=new Image(); otterImg.src=OTTER_SRC;
 const turtleImg=new Image(); turtleImg.src=TURTLE_SRC;
@@ -159,16 +240,14 @@ function startGame(){
   items=[]; bursts=[]; winConfetti=[]; winAnim=0; bombFlash=0;
   turtle.x=GW*0.28; otter.x=GW*0.72;
 }
-function resetGame(){ gs=S.START; setGameSize(); }
+function resetGame(){ gs=S.START; setGameSize(); startNatureMusic(); }
 
-// const ITYPES=['🎂','💚','🎁','🕯️','🎈','⭐','🌸','🍭','🎀'];
-const ITYPES=['🎂','🍇','👩🏻‍💻','🦭','🥐','⭐','🌸','🍀','🍧'];
-
+const ITYPES=['🎂','🍇','👩🏻‍💻','🦭','🥐','🦋','🌸','🍀','🍧'];
 
 function spawnItem(){
   const zone=Math.random()<0.5?'grass':'river';
-  const baseSpeed = 3.2 + score*0.04;
-  const isBomb = score>=3 && Math.random()<0.22;  // bombs appear once you have 3 pts
+  const baseSpeed = 3.5 + score*0.04;
+  const isBomb = score>=1 && Math.random()<0.22;  // bombs appear once you have 1 pts
   items.push({
     x: ITEM_SZ/2 + Math.random()*(GW-ITEM_SZ),
     y: zone==='grass' ? GRASS_TOP+8 : RIVER_TOP+8,
@@ -248,7 +327,7 @@ function update(){
         if(lives<=0){ gs=S.LOSE; sfxLose(); }
       } else {
         score++; sfxCatch(); burst(it.x,it.y,9);
-        if(score>=WIN_SCORE){ gs=S.WIN; sfxWin(); bigConfetti(); setWinSize(); }
+        if(score>=WIN_SCORE){ gs=S.WIN; sfxWin(); bigConfetti(); setWinSize(); startWinMusic(); }
       }
     } else if(it.y>zb+ITEM_SZ){
       if(!it.bomb){ // missing a bomb is safe — dodge it!
@@ -368,16 +447,6 @@ function drawHeader(){
   ctx.fillText('🦦 OTTER   —  ◀ / ▶  or tap', 8, RIVER_TOP+13);
 }
 
-// // Solid background colours per item type
-// const ITEM_BG = {
-//   '🎂':'#ff6b8a', '💚':'#27ae60', '🎁':'#9b59b6', '🕯️':'#f39c12',
-//   '🎈':'#e74c3c', '⭐':'#f1c40f', '🌸':'#ff85a2', '🍭':'#1abc9c', '🎀':'#e056fd'
-// };
-// const ITEM_BORDER = {
-//   '🎂':'#c0392b', '💚':'#1e8449', '🎁':'#7d3c98', '🕯️':'#d68910',
-//   '🎈':'#a93226', '⭐':'#d4ac0d', '🌸':'#e05c80', '🍭':'#148f77', '🎀':'#be2edd'
-// };
-
 function drawItems(){
   ctx.textAlign='center'; ctx.textBaseline='middle';
   for(const it of items){
@@ -396,6 +465,27 @@ function drawChar(img, x, y){
 }
 
 // ── Screens ──
+const MUTE_BTN={x:GW-28,y:16,r:14}; // circle button top-right
+function drawMuteBtn(){
+  ctx.save();
+  ctx.beginPath(); ctx.arc(MUTE_BTN.x,MUTE_BTN.y,MUTE_BTN.r,0,Math.PI*2);
+  ctx.fillStyle='rgba(0,0,0,0.4)'; ctx.fill();
+  ctx.strokeStyle='rgba(255,255,255,0.3)'; ctx.lineWidth=1.5; ctx.stroke();
+  ctx.font='15px serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText(muted?'🔇':'🔊', MUTE_BTN.x, MUTE_BTN.y);
+  ctx.restore();
+}
+function hitMuteBtn(clientX,clientY){
+  const r=canvas.getBoundingClientRect();
+  const gx=(clientX-r.left)/scale, gy=(clientY-r.top)/scale;
+  return Math.hypot(gx-MUTE_BTN.x, gy-MUTE_BTN.y)<=MUTE_BTN.r+6;
+}
+function toggleMute(){
+  muted=!muted;
+  if(muted) stopMusic();
+  else if(gs===S.START||gs===S.PLAY) startNatureMusic();
+  else if(gs===S.WIN)   startWinMusic();
+}
 
 function drawStart(){
   drawBg();
@@ -433,6 +523,7 @@ function drawStart(){
 
   ctx.font='10px monospace'; ctx.fillStyle='rgba(255,255,255,0.3)';
   ctx.fillText('Desktop: A/D = turtle   Arrow keys = otter', GW/2, 548);
+  drawMuteBtn();
 }
 
 const SHIMMER=['#f9ca24','#f0932b','#eb4d4b','#e056fd','#686de0','#2ecc71'];
@@ -491,7 +582,7 @@ function drawWin(){
   // ── Message ──
   ctx.font='15px Georgia,serif'; ctx.fillStyle='rgba(255,255,255,0.88)';
   ctx.fillText('Wishing you a day filled with', GW/2, 365);
-  ctx.fillText('laughter, joy & everything you love! 💖', GW/2, 390);
+  ctx.fillText('laughter, joy & everything you love! 🎁', GW/2, 390);
 
   // ── Nature row ──
   ctx.font='20px serif';
@@ -516,6 +607,7 @@ function drawWin(){
 
   ctx.font='10px monospace'; ctx.fillStyle='rgba(255,255,255,0.3)';
   ctx.fillText('Desktop: Space / Enter to play again', GW/2, 648);
+  drawMuteBtn();
 }
 
 function drawLose(){
