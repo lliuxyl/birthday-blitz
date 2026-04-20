@@ -51,7 +51,7 @@ const GRASS_TOP = HDR;
 const RIVER_TOP = HDR + ZONE_H;
 
 // ── Game settings (easy mode) ──
-const WIN_SCORE  = 10;
+const WIN_SCORE  = 15;
 const MAX_LIVES  = 3;
 const CHAR_W     = 68;
 const CHAR_H     = 68;
@@ -167,7 +167,7 @@ const ITYPES=['🎂','🍇','👩🏻‍💻','🦭','🥐','⭐','🌸','🍀',
 
 function spawnItem(){
   const zone=Math.random()<0.5?'grass':'river';
-  const baseSpeed = 3 + score*0.04;
+  const baseSpeed = 3.2 + score*0.04;
   const isBomb = score>=3 && Math.random()<0.22;  // bombs appear once you have 3 pts
   items.push({
     x: ITEM_SZ/2 + Math.random()*(GW-ITEM_SZ),
@@ -407,8 +407,8 @@ function drawStart(){
   ctx.textAlign='center'; ctx.textBaseline='middle';
   // Title
   ctx.font='bold 36px monospace'; ctx.fillStyle='#f9ca24';
-  ctx.fillText('🎂 BIRTHDAY', GW/2, 108);
-  ctx.fillText('BLITZ! 🎈', GW/2, 152);
+  ctx.fillText('🎂 BIRTHDAY 👾', GW/2, 108);
+  ctx.fillText('BLITZ!', GW/2, 152);
 
   // Characters bobbing
   const b=Math.sin(frame*0.07)*7;
