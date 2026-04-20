@@ -27,26 +27,23 @@ const ctx    = canvas.getContext('2d');
 const GW = 400, GH = 700;
 let scale = 1;
 function setGameSize(){
-  canvas.width  = GW;
-  canvas.height = GH;
-  scale = Math.min(window.innerWidth/GW, window.innerHeight/GH);
-  canvas.style.position = 'static';
+  canvas.style.position = '';
   canvas.style.top = '';
   canvas.style.left = '';
-  canvas.style.zIndex = '';
+  scale = Math.min(window.innerWidth/GW, window.innerHeight/GH);
   canvas.style.width  = Math.floor(GW*scale)+'px';
   canvas.style.height = Math.floor(GH*scale)+'px';
+  canvas.width  = GW;
+  canvas.height = GH;
 }
 function setWinSize(){
-  const w = window.innerWidth, h = window.innerHeight;
-  canvas.width  = w;
-  canvas.height = h;
   canvas.style.position = 'fixed';
   canvas.style.top = '0';
   canvas.style.left = '0';
-  canvas.style.zIndex = '9999';
-  canvas.style.width  = w + 'px';
-  canvas.style.height = h + 'px';
+  canvas.style.width  = '100vw';
+  canvas.style.height = '100vh';
+  canvas.width  = window.innerWidth;
+  canvas.height = window.innerHeight;
   scale = 1;
 }
 function resize(){
@@ -63,13 +60,13 @@ const RIVER_TOP = HDR + ZONE_H;
 
 // ── Game settings (easy mode) ──
 const WIN_SCORE  = 10;
-const MAX_LIVES  = 3;
+const MAX_LIVES  = 5;
 const CHAR_W     = 68;
 const CHAR_H     = 68;
 const ITEM_SZ    = 40;
 const CATCH_W    = CHAR_W * 1.1;   // generous hitbox
 const CATCH_H    = 32;
-const CHAR_SPEED = 10;
+const CHAR_SPEED = 8;
 
 // ── State ──
 const S = {START:0, PLAY:1, WIN:2, LOSE:3};
@@ -172,7 +169,6 @@ function startGame(){
 }
 function resetGame(){ gs=S.START; setGameSize(); }
 
-// const ITYPES=['🎂','🍇','👩🏻‍💻','🦭','🥐','⭐','🌸','🍀','🍧'];
 const ITYPES=['🎂','💚','🎁','🕯️','🎈','⭐','🌸','🍭','🎀'];
 
 function spawnItem(){
@@ -352,10 +348,19 @@ function drawHeader(){
   ctx.fillText('🦦 OTTER   —  ◀ / ▶  or tap', 8, RIVER_TOP+13);
 }
 
-
+// Solid background colours per item type
+const ITEM_BG = {
+  '🎂':'#ff6b8a', '💚':'#27ae60', '🎁':'#9b59b6', '🕯️':'#f39c12',
+  '🎈':'#e74c3c', '⭐':'#f1c40f', '🌸':'#ff85a2', '🍭':'#1abc9c', '🎀':'#e056fd'
+};
+const ITEM_BORDER = {
+  '🎂':'#c0392b', '💚':'#1e8449', '🎁':'#7d3c98', '🕯️':'#d68910',
+  '🎈':'#a93226', '⭐':'#d4ac0d', '🌸':'#e05c80', '🍭':'#148f77', '🎀':'#be2edd'
+};
 
 function drawItems(){
   ctx.textAlign='center'; ctx.textBaseline='middle';
+  const pad = ITEM_SZ * 0.6;
   for(const it of items){
     if(it.alpha<=0) continue;
     ctx.save();
@@ -434,9 +439,9 @@ function drawWin(){
   ctx.fillStyle=g; ctx.fillRect(0,0,GW,GH);
 
   // Twinkling stars
-  for(const[stx,sty] of STARS){
-    const a=0.3+Math.sin(frame*0.05+stx)*0.3;
-    ctx.fillStyle='rgba(255,255,255,'+a+')'; ctx.fillRect(stx,sty,2,2);
+  for(const[sx,sy] of STARS){
+    const a=0.3+Math.sin(frame*0.05+sx)*0.3;
+    ctx.fillStyle='rgba(255,255,255,'+a+')'; ctx.fillRect(sx,sy,2,2);
   }
 
   // Confetti rain
