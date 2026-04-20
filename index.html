@@ -323,7 +323,7 @@ function update(){
     if(it.y+ITEM_SZ/2>=ch.y && it.y-ITEM_SZ/2<=ch.y+CATCH_H && Math.abs(it.x-ch.x)<=CATCH_W/2){
       it.st='caught';
       if(it.bomb){
-        lives=Math.max(0,lives-2); bombBurst(it.x,it.y); sfxMiss();
+        lives=Math.max(0,lives-1); bombBurst(it.x,it.y); sfxMiss();
         if(lives<=0){ gs=S.LOSE; sfxLose(); }
       } else {
         score++; sfxCatch(); burst(it.x,it.y,9);
@@ -582,7 +582,7 @@ function drawWin(){
   // ── Message ──
   ctx.font='15px Georgia,serif'; ctx.fillStyle='rgba(255,255,255,0.88)';
   ctx.fillText('Wishing you a day filled with', GW/2, 365);
-  ctx.fillText('laughter, joy & everything you love! 🎁', GW/2, 390);
+  ctx.fillText('laughter, joy & everything you love! 💖', GW/2, 390);
 
   // ── Nature row ──
   ctx.font='20px serif';
