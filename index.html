@@ -246,7 +246,7 @@ const ITYPES=['🎂','🍇','👩🏻‍💻','🦭','🥐','🦋','🌸','🍀'
 
 function spawnItem(){
   const zone=Math.random()<0.5?'grass':'river';
-  const baseSpeed = 3.5 + score*0.04;
+  const baseSpeed = 1 + score*0.04;
   const isBomb = score>=1 && Math.random()<0.22;  // bombs appear once you have 1 pts
   items.push({
     x: ITEM_SZ/2 + Math.random()*(GW-ITEM_SZ),
